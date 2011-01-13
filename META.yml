@@ -1,0 +1,17 @@
+--- #YAML:1.0
+name:                Text-Extract-MaketextCallPhrases
+version:             0.1
+abstract:            Extract phrases from maketext–call–looking text
+license:             ~
+author:              
+    - Daniel Muey <http://drmuey.com/cpan_contact.pl>
+generated_by:        ExtUtils::MakeMaker version 6.42
+distribution_type:   module
+requires:     
+    Module::Want:                  0.3
+    String::Unquotemeta:           0
+    Test::More:                    0
+    Text::Balanced:                0
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3

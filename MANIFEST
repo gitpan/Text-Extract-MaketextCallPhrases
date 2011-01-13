@@ -1,0 +1,13 @@
+Build.PL
+Changes
+MANIFEST
+Makefile.PL
+README
+lib/Text/Extract/MaketextCallPhrases.pm
+t/00.load.t
+t/01.get_phrases_in_text.t
+t/02.get_phrases_in_file.t
+t/perlcritic.t
+t/pod-coverage.t
+t/pod.t
+META.yml                                 Module meta-data (added by MakeMaker)
