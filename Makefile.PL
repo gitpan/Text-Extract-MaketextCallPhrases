@@ -10,6 +10,8 @@ WriteMakefile(
     PL_FILES            => {},
     PREREQ_PM => {
         'Test::More' => 0,
+        'File::Temp' => 0,
+        
         'Text::Balanced' => 0,
         'String::Unquotemeta' => 0,
         'Module::Want' => '0.3',

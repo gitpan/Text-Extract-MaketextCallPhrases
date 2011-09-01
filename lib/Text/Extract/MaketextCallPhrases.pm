@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.1';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.2';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -21,8 +21,15 @@ sub import {
 my $default_regexp_conf_item = [ qr/maketext\s*\(?/, sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ } ];
 
 sub get_phrases_in_text {
-    my ( $text, $conf_hr ) = @_;
+
+    # 3rd arg is used internally to get the line number in the 'debug_ignored_matches' results when called via get_phrases_in_file(). Don't rely on this as it may change.
+    my ( $text, $conf_hr, $linenum ) = @_; # 3rd arg is used internally to get the line number in the 'debug_ignored_matches' results when called via get_phrases_in_file(). Don't rely on this as it may change.
+
     $conf_hr ||= {};
+
+    if ( $conf_hr->{'encode_unicode_slash_x'} ) {
+        Module::Want::have_mod('Encode') || die $@;
+    }
 
     my @results;
 
@@ -41,13 +48,55 @@ sub get_phrases_in_text {
 
         while ( $text_working_copy =~ m/($regexp->[0])/ ) {
             my $matched = $1;
-
-            ( undef, $text_working_copy ) = split( $regexp->[0], $text_working_copy, 2 );
+            my $pre;
+            ( $pre, $text_working_copy ) = split( $regexp->[0], $text_working_copy, 2 );
 
             my $offset = $original_len - length($text_working_copy);
 
             my $phrase;
             my $result_hr = { 'is_error' => 0, 'is_warning' => 0, 'offset' => $offset, 'regexp' => $regexp, 'matched' => $matched };
+
+            if ( $conf_hr->{'ignore_perlish_comments'} ) {
+
+                # ignore matches in a comment
+                if ( $pre =~ m/\#/ && $pre !~ m/[\n\r]$/ ) {
+                    my @lines = split( /[\n\r]+/, $pre );
+
+                    if ( $lines[-1] =~ m/\#/ ) {
+                        $result_hr->{'type'} = 'comment';
+                        $result_hr->{'line'} = $linenum if defined $linenum;
+                        push @{ $conf_hr->{'debug_ignored_matches'} }, $result_hr;
+                        next;
+                    }
+                }
+            }
+
+            # ignore functions named *maketext
+            if ( $text_working_copy =~ m/^\s*\{/ ) {
+                $result_hr->{'type'} = 'function';
+                $result_hr->{'line'} = $linenum if defined $linenum;
+                push @{ $conf_hr->{'debug_ignored_matches'} }, $result_hr;
+                next;
+            }
+
+            # ignore assignments to things named *maketext
+            if ( $text_working_copy =~ m/^\s*=/ ) {
+                $result_hr->{'type'} = 'assignment';
+                $result_hr->{'line'} = $linenum if defined $linenum;
+                push @{ $conf_hr->{'debug_ignored_matches'} }, $result_hr;
+                next;
+            }
+
+            if ( $conf_hr->{'ignore_perlish_statement'} ) {
+
+                # ignore a statement named *maketext (e.g. goto &XYZ::maketext;)
+                if ( $text_working_copy =~ m/^\s*;/ ) {
+                    $result_hr->{'type'} = 'statement';
+                    $result_hr->{'line'} = $linenum if defined $linenum;
+                    push @{ $conf_hr->{'debug_ignored_matches'} }, $result_hr;
+                    next;
+                }
+            }
 
             ( $phrase, $text_working_copy ) = Text::Balanced::extract_variable($text_working_copy);
 
@@ -150,6 +199,19 @@ sub get_phrases_in_text {
                 }
             }
             else {
+                if ( $conf_hr->{'encode_unicode_slash_x'} ) {
+
+                    # Turn Unicode string \x{} into bytes strings
+                    $phrase =~ s{(\\x\{[0-9a-fA-F]+\})}{Encode::encode_utf8( eval qq{"$1"} )}eg;
+                }
+                else {
+
+                    # Preserve Unicode string \x{} for unquotemeta()
+                    $phrase =~ s{(\\)(x\{[0-9a-fA-F]+\})}{$1$1$2}g;
+                }
+
+                # Turn graphemes into characters to avoid quotemeta() problems
+                $phrase =~ s{((:?\\x[0-9a-fA-F]{2})+)}{eval qq{"$1"}}eg;
                 $phrase = String::Unquotemeta::unquotemeta($phrase) unless exists $result_hr->{'type'} && $result_hr->{'type'} eq 'perlish';
             }
 
@@ -177,7 +239,7 @@ sub get_phrases_in_file {
         $linenum++;
 
         my $initial_result_count = @results;
-        push @results, map { $_->{'line'} = $in_multi_line ? $in_multi_line : $linenum; $_ } @{ get_phrases_in_text( $prepend . $line, $regex_conf ) };
+        push @results, map { $_->{'line'} = $in_multi_line ? $in_multi_line : $linenum; $_ } @{ get_phrases_in_text( $prepend . $line, $regex_conf, $linenum ) };
         my $updated_result_count = @results;
 
         if ( $in_multi_line && $updated_result_count == $initial_result_count ) {
@@ -189,7 +251,7 @@ sub get_phrases_in_file {
             pop @results;
             next;
         }
-        elsif ( !$in_multi_line && defined $results[-1]->{'type'} && $results[-1]->{'type'} eq 'multiline' ) {
+        elsif ( !$in_multi_line && @results && defined $results[-1]->{'type'} && $results[-1]->{'type'} eq 'multiline' ) {
             $in_multi_line = $linenum;
             my $trailing_partial = pop @results;
 
@@ -299,6 +361,38 @@ The regex should simply match and remain simple as it gets used by the parser wh
 
 If you are using 'regexp_conf' then setting this to true will avoid using the default maketext() lookup. (i.e. only use 'regexp_conf')
 
+=item 'encode_unicode_slash_x'
+
+Boolean (default is false) that when true will turn Unicode string notation \x{....} into a non-grapheme byte string. This will cause L<Encode>  to be loaded if needed.
+
+Otherwise \x{....} are left in the phrase as-is.
+
+=item 'debug_ignored_matches'
+
+This is an array that gets aggregate debug info on matches that did not look like something that should have a phrase associated with it.
+
+Some examples of things that might match but would not :
+
+    sub i_heart_maketext { 1 }
+    
+    *i_heart_maketext = "foo";
+
+    goto &xyz::maketext;
+
+    print $locale->Maketext("Hello World"); # maketext() is cool
+
+=item 'ignore_perlish_statement'
+
+Boolean (default is false) that when true will cause matches that look like a statement to be put in 'debug_ignored_matches' instead of a result with a 'type' os 'no_arg'.
+
+=item 'ignore_perlish_comment'
+
+Boolean (default is false) that when true will cause matches that look like a perl comment to be put in 'debug_ignored_matches' instead of a result.
+
+Since this is parsing arbitrary text and thus there is no real context, interpreting what is a comment or not becomes very complex and context sensitive.
+
+If you do not want to grab phrases from commented out data and this check does not work with this text's commenting scheme then yo could instead strip comments out of the text before parsing.
+
 =back
 
 =head2 get_phrases_in_file()
@@ -322,6 +416,12 @@ The phrase in question.
 =item 'offset'
 
 The offset in the text where the phrase started.
+
+=item 'line'
+
+Available via get_phrases_in_file() only, not get_phrases_in_text().
+
+The line number the offset applies to. If a phrase spans more than one line it should be the line it starts on - but you're too smart to let the phrase dictate output format right ;p?
 
 =item 'matched'
 
@@ -374,12 +474,6 @@ The phrase was perl-like expression (e.g. a variable)
 =item 'no_arg'
 
 The call had no arguments
-
-=item 'line'
-
-Available via get_phrases_in_file() only, not get_phrases_in_text().
-
-The line number the offset applies to. If a phrase spans more than one line it should be the line it starts on - but you're too smart to let the phrase dictate output format right ;p?
 
 =item 'multiline'
 
