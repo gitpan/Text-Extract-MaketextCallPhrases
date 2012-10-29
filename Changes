@@ -1,5 +1,11 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
+0.3  Sun Oct 28 17:48:23 2012
+    - rt 76699 Add “=encoding utf-8” to top of POD
+    - rt 76700: Add test for “foo(<<HEAR_DOC, @args);” style heredocs
+    - rt 77538: add helper methods to default regex
+    - move Critic and POD tests to RELEASE_TESTING mode
+
 0.2  Wed Aug 31 17:51:04 2011
     - rt 70652 items
 

@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.2';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.3';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -13,17 +13,20 @@ use Module::Want 0.3 ();
 my $ns_regexp = Module::Want::get_ns_regexp();
 
 sub import {
-    no strict 'refs';
+    no strict 'refs';    ## no critic
     *{ caller() . '::get_phrases_in_text' } = \&get_phrases_in_text;
     *{ caller() . '::get_phrases_in_file' } = \&get_phrases_in_file;
 }
 
-my $default_regexp_conf_item = [ qr/maketext\s*\(?/, sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ } ];
+my $default_regexp_conf_item = [
+    qr/(?:(?:^|\:|\s|=|\()translatable|(?:make|lex)text(?:_[a-zA-Z0-9_]+_context)?)\s*\(?/,
+    sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ },
+];
 
 sub get_phrases_in_text {
 
     # 3rd arg is used internally to get the line number in the 'debug_ignored_matches' results when called via get_phrases_in_file(). Don't rely on this as it may change.
-    my ( $text, $conf_hr, $linenum ) = @_; # 3rd arg is used internally to get the line number in the 'debug_ignored_matches' results when called via get_phrases_in_file(). Don't rely on this as it may change.
+    my ( $text, $conf_hr, $linenum ) = @_;    # 3rd arg is used internally to get the line number in the 'debug_ignored_matches' results when called via get_phrases_in_file(). Don't rely on this as it may change.
 
     $conf_hr ||= {};
 
@@ -71,7 +74,7 @@ sub get_phrases_in_text {
                 }
             }
 
-            # ignore functions named *maketext
+            # ignore functions named *1
             if ( $text_working_copy =~ m/^\s*\{/ ) {
                 $result_hr->{'type'} = 'function';
                 $result_hr->{'line'} = $linenum if defined $linenum;
@@ -274,6 +277,8 @@ sub get_phrases_in_file {
 
 __END__
 
+=encoding utf-8
+
 =head1 NAME
 
 Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–looking text
@@ -304,7 +309,7 @@ You will probably have a collection of data that contains things like this:
 
 This module looks for the first argument to things that look like maketext() calls (See L</SEE ALSO>) so that you can process as needed (lint check, add to lexicon management system, etc).
 
-By default it looks for calls to maketext(). If you use a shortcut (e.g. _()) or an unperlish format, it can do that too (You might also want to look at L</SEE ALSO> for an alernative this module).
+By default it looks for calls to maketext(), maketext_*_context(), lextext(), and translatable() (ala L<Locale::Maketext::Utils::MarkPhrase>). If you use a shortcut (e.g. _()) or an unperlish format, it can do that too (You might also want to look at L</SEE ALSO> for an alernative this module).
 
 =head1 EXPORTS
 
@@ -357,7 +362,8 @@ The regex should simply match and remain simple as it gets used by the parser wh
         [ qr/\_\(?/, sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ } ],
     ],
 
-=item 'no_default_regex'
+=item 'no_
+'
 
 If you are using 'regexp_conf' then setting this to true will avoid using the default maketext() lookup. (i.e. only use 'regexp_conf')
 

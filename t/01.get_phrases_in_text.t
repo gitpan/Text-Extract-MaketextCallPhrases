@@ -1,4 +1,4 @@
-use Test::More tests => 334;
+use Test::More tests => 335;
 
 BEGIN {
     use_ok('Text::Extract::MaketextCallPhrases');
@@ -100,6 +100,15 @@ for my $blob ( _get_blob(0), _get_blob(1) ) {
 }
 
 is( get_phrases_in_text('maketext(q{\\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\_})')->[0]{'phrase'}, q{!@#$%^&*()_}, 'quotemeta() is unescaped' );
+
+my $parened_here_text = <<'END_HERE';
+maketext(<<"IHERE", "arg", "argx", "argy");
+yo yo
+ba ba
+zi zi
+IHERE
+END_HERE
+is( get_phrases_in_text($parened_here_text)->[0]->{'phrase'}, "yo yo\nba ba\nzi zi\n", 'paren-ed here doc parsed OK' );
 
 sub _is_type {
     my $results = shift;
