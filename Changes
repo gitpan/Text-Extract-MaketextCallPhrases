@@ -1,5 +1,15 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
+0.4  Mon Nov  5 23:06:35 2012
+    - rt 80488: bump version in POD
+    - rt 80642: POD: type' os 'no_arg' =~ s/os/of/
+    - rt 80641: POD: 'no_' should be 'no_default_regex'
+    - rt 80643: needs to require bytes when it uses bytes::length
+    - rt 80653: if double quoted context interpolate \n and friends (not \x)
+    - rt 80648	add file key to result hash
+    - treat mt("$var") et. al. like a perlish type
+    - added 'heredoc' key to result hash
+
 0.3  Sun Oct 28 17:48:23 2012
     - rt 76699 Add “=encoding utf-8” to top of POD
     - rt 76700: Add test for “foo(<<HEAR_DOC, @args);” style heredocs

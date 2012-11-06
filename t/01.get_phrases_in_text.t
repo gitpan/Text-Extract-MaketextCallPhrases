@@ -1,4 +1,4 @@
-use Test::More tests => 335;
+use Test::More tests => 372;
 
 BEGIN {
     use_ok('Text::Extract::MaketextCallPhrases');
@@ -10,6 +10,8 @@ for my $blob ( _get_blob(0), _get_blob(1) ) {
 
     my $results = get_phrases_in_text($blob);
 
+    ok( !exists $results->[0]->{'file'}, 'get_phrases_in_text does not have a file field' );
+
     is( $results->[0]->{'phrase'}, "Greetings Programs DQ",  "Normal, Double Quotes" );
     is( $results->[1]->{'phrase'}, "Greetings Programs SQ",  "Normal, Single Quotes" );
     is( $results->[2]->{'phrase'}, "Greetings Programs DQQ", "Normal, qq{} Quotes" );
@@ -17,6 +19,12 @@ for my $blob ( _get_blob(0), _get_blob(1) ) {
     is( $results->[4]->{'phrase'}, "QW",                     "Normal, qw() quote" );
     is( $results->[5]->{'phrase'}, "I am HERE DOC\n",        "Normal, Here Doc" );
     is( $results->[6]->{'phrase'}, "I am\n\nmultiline",      "Normal, Multi-line" );
+
+    is( $results->[0]->{'quotetype'}, 'double', "quotetype for Normal, Double Quotes" );
+    is( $results->[1]->{'quotetype'}, 'single', "quotetype for Normal, Single Quotes" );
+    is( $results->[2]->{'quotetype'}, 'double', "quotetype for Normal, qq{} Quotes" );
+    is( $results->[3]->{'quotetype'}, 'single', "quotetype for Normal, q{} Quotes" );
+    is( $results->[4]->{'quotetype'}, 'single', "quotetype for Normal, qw() Quotes" );
 
     is( $results->[7]->{'phrase'},  "Greetings Programs DQ BS",  "Normal space, Double Quotes" );
     is( $results->[8]->{'phrase'},  "Greetings Programs SQ BS",  "Normal space, Single Quotes" );
@@ -57,7 +65,9 @@ for my $blob ( _get_blob(0), _get_blob(1) ) {
     is( $results->[37]->{'phrase'}, "bare::name::space", "name space like bare word" );
     is( $results->[38]->{'phrase'}, "Class->method",     "class method" );
 
-    is( $results->[39]->{'phrase'}, '$var',         'scalar' );
+    is( $results->[39]->{'phrase'}, '$var', 'scalar' );
+    ok( !exists $results->[39]->{'quotetype'}, 'perlish no quotetype' );
+
     is( $results->[40]->{'phrase'}, '@array',       'array' );
     is( $results->[41]->{'phrase'}, '%hash',        'hash' );
     is( $results->[42]->{'phrase'}, '$obj->method', 'object method' );
@@ -108,7 +118,54 @@ ba ba
 zi zi
 IHERE
 END_HERE
-is( get_phrases_in_text($parened_here_text)->[0]->{'phrase'}, "yo yo\nba ba\nzi zi\n", 'paren-ed here doc parsed OK' );
+
+my $parened_here_text_res = get_phrases_in_text($parened_here_text);
+is( $parened_here_text_res->[0]->{'phrase'},    "yo yo\nba ba\nzi zi\n", 'paren-ed here doc parsed OK' );
+is( $parened_here_text_res->[0]->{'quotetype'}, 'double',                "paren-ed here doc quotetype" );
+is( $parened_here_text_res->[0]->{'heredoc'},   '"IHERE"',               "paren-ed here doc heredoc" );
+
+my $quotes_here_text = <<'END_HERE';
+maketext(<<"END_DOUB";
+I am double quoted.
+END_DOUB
+)
+
+maketext(<<'END_SING';
+I am single quoted.
+END_SING
+)
+
+maketext(<<END_IMPL;
+I am implied double quoted.
+END_IMPL
+)
+
+END_HERE
+
+my $quotes_here_text_results = get_phrases_in_text($quotes_here_text);
+is( $quotes_here_text_results->[0]->{'phrase'},    "I am double quoted.\n",         "quotetype for Normal, Here Doc (double)" );
+is( $quotes_here_text_results->[1]->{'phrase'},    "I am single quoted.\n",         "quotetype for Normal, Here Doc (single)" );
+is( $quotes_here_text_results->[2]->{'phrase'},    "I am implied double quoted.\n", "quotetype for Normal, Here Doc (implicit)" );
+is( $quotes_here_text_results->[0]->{'quotetype'}, 'double',                        "quotetype for Normal, Here Doc (double)" );
+is( $quotes_here_text_results->[1]->{'quotetype'}, 'single',                        "quotetype for Normal, Here Doc (single)" );
+is( $quotes_here_text_results->[2]->{'quotetype'}, 'double',                        "quotetype for Normal, Here Doc (implicit)" );
+is( $quotes_here_text_results->[0]->{'heredoc'},   '"END_DOUB"',                    "heredoc for Normal, Here Doc (double)" );
+is( $quotes_here_text_results->[1]->{'heredoc'},   q{'END_SING'},                   "heredoc for Normal, Here Doc (single)" );
+is( $quotes_here_text_results->[2]->{'heredoc'},   'END_IMPL',                      "heredoc for Normal, Here Doc (implicit)" );
+
+my $quoth_sing_res = get_phrases_in_text(q{maketext('$var') maketext('  $var  ') maketext('\ttab newline\n')});
+_is_type( $quoth_sing_res, 'perlish', 0 .. 1 );
+is( $quoth_sing_res->[0]->{'phrase'},    '$var',            "quoted \$var in single quotes" );
+is( $quoth_sing_res->[1]->{'phrase'},    '  $var  ',        "quoted \$var in single quotes w/ space" );
+is( $quoth_sing_res->[2]->{'phrase'},    '\ttab newline\n', "slash chars in single quote preserved as literal" );
+is( $quoth_sing_res->[0]->{'quotetype'}, 'single',          "quotetype for quoted \$var in single quotes" );
+
+my $quoth_doub_res = get_phrases_in_text(q{maketext("$var") maketext("  $var  ") maketext("\ttab newline\n")});
+_is_type( $quoth_doub_res, 'perlish', 0 .. 1 );
+is( $quoth_doub_res->[0]->{'phrase'},    '$var',            "\$var in single quotes" );
+is( $quoth_doub_res->[1]->{'phrase'},    '  $var  ',        "\$var in single quotes w/ space" );
+is( $quoth_doub_res->[2]->{'phrase'},    "\ttab newline\n", "slash chars in double quote interpolated" );
+is( $quoth_doub_res->[0]->{'quotetype'}, 'double',          "quotetype for quoted \$var in double quotes" );
 
 sub _is_type {
     my $results = shift;

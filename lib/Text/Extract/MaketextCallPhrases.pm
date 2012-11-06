@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.3';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.4';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -74,7 +74,7 @@ sub get_phrases_in_text {
                 }
             }
 
-            # ignore functions named *1
+            # ignore functions named *$1
             if ( $text_working_copy =~ m/^\s*\{/ ) {
                 $result_hr->{'type'} = 'function';
                 $result_hr->{'line'} = $linenum if defined $linenum;
@@ -109,7 +109,19 @@ sub get_phrases_in_text {
                 my ( $type, $inside, $opener, $closer );
                 ( $phrase, $text_working_copy, undef, $type, $opener, $inside, $closer ) = Text::Balanced::extract_quotelike($text_working_copy);
 
-                if ( defined $inside && ( $type eq 'q' || $type eq 'qq' || $type eq 'qw' ) && $inside eq '' ) {
+                $result_hr->{'quotetype'} = 'single' if ( defined $opener && $opener eq "'" ) || ( defined $type && ( $type eq 'q' || $type eq 'qw' ) );
+                $result_hr->{'quotetype'} = 'double' if ( defined $opener && $opener eq '"' ) || ( defined $type && $type eq 'qq' );
+                if ( defined $type && $type eq '<<' ) {
+                    $result_hr->{'heredoc'} = $opener;
+                    if ( substr( $opener, 0, 1 ) eq "'" ) {
+                        $result_hr->{'quotetype'} = 'single';
+                    }
+                    else {
+                        $result_hr->{'quotetype'} = 'double';
+                    }
+                }
+
+                if ( defined $inside && ( exists $result_hr->{'quotetype'} ) && $inside eq '' ) {
                     $result_hr->{'is_error'} = 1;
                     $result_hr->{'type'}     = 'empty';
                     $phrase                  = $inside;
@@ -202,20 +214,43 @@ sub get_phrases_in_text {
                 }
             }
             else {
-                if ( $conf_hr->{'encode_unicode_slash_x'} ) {
 
-                    # Turn Unicode string \x{} into bytes strings
-                    $phrase =~ s{(\\x\{[0-9a-fA-F]+\})}{Encode::encode_utf8( eval qq{"$1"} )}eg;
+                # make sure its wasn't a tricky variable in quotes like maketext("$foo->{zip}")
+                # '$foo->{zip}' '   $foo->{zip} ' " $foo->{zip} " to but that seems like a good idea to flag as wonky and in need of human follow up
+                my ( $var, $for, $aft ) = Text::Balanced::extract_variable($phrase);
+                if ( $var && defined $for && defined $aft && $for =~ m/\A\s*\z/ && $aft =~ m/\A\s*\z/ ) {
+                    $result_hr->{'is_warning'} = 1;
+                    $result_hr->{'type'}       = 'perlish';
                 }
                 else {
+                    if ( exists $result_hr->{'quotetype'} ) {
+                        if ( $result_hr->{'quotetype'} eq 'single' ) {
 
-                    # Preserve Unicode string \x{} for unquotemeta()
-                    $phrase =~ s{(\\)(x\{[0-9a-fA-F]+\})}{$1$1$2}g;
+                            # escape \n\t etc to preserver them during unquotemeta()
+                            $phrase =~ s{(\\(?:n|t|f|r|a|b))}{\\$1}g;
+                        }
+                        elsif ( $result_hr->{'quotetype'} eq 'double' ) {
+
+                            # interpolate \n\t etc
+                            $phrase =~ s{(\\(?:n|t|f|r|a|b))}{eval qq{"$1"}}eg;
+                        }
+                    }
+
+                    if ( $conf_hr->{'encode_unicode_slash_x'} ) {
+
+                        # Turn Unicode string \x{} into bytes strings
+                        $phrase =~ s{(\\x\{[0-9a-fA-F]+\})}{Encode::encode_utf8( eval qq{"$1"} )}eg;
+                    }
+                    else {
+
+                        # Preserve Unicode string \x{} for unquotemeta()
+                        $phrase =~ s{(\\)(x\{[0-9a-fA-F]+\})}{$1$1$2}g;
+                    }
+
+                    # Turn graphemes into characters to avoid quotemeta() problems
+                    $phrase =~ s{((:?\\x[0-9a-fA-F]{2})+)}{eval qq{"$1"}}eg;
+                    $phrase = String::Unquotemeta::unquotemeta($phrase) unless exists $result_hr->{'type'} && $result_hr->{'type'} eq 'perlish';
                 }
-
-                # Turn graphemes into characters to avoid quotemeta() problems
-                $phrase =~ s{((:?\\x[0-9a-fA-F]{2})+)}{eval qq{"$1"}}eg;
-                $phrase = String::Unquotemeta::unquotemeta($phrase) unless exists $result_hr->{'type'} && $result_hr->{'type'} eq 'perlish';
             }
 
             $result_hr->{'phrase'} = $phrase;
@@ -242,7 +277,7 @@ sub get_phrases_in_file {
         $linenum++;
 
         my $initial_result_count = @results;
-        push @results, map { $_->{'line'} = $in_multi_line ? $in_multi_line : $linenum; $_ } @{ get_phrases_in_text( $prepend . $line, $regex_conf, $linenum ) };
+        push @results, map { $_->{'file'} = $file; $_->{'line'} = $in_multi_line ? $in_multi_line : $linenum; $_ } @{ get_phrases_in_text( $prepend . $line, $regex_conf, $linenum ) };
         my $updated_result_count = @results;
 
         if ( $in_multi_line && $updated_result_count == $initial_result_count ) {
@@ -258,6 +293,7 @@ sub get_phrases_in_file {
             $in_multi_line = $linenum;
             my $trailing_partial = pop @results;
 
+            require bytes;
             my $offset = $trailing_partial->{'offset'} > bytes::length( $prepend . $line ) ? bytes::length( $prepend . $line ) : $trailing_partial->{'offset'};
             $prepend = $trailing_partial->{'matched'} . substr( "$prepend$line", $offset );
             next;
@@ -285,7 +321,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.1
+This document describes Text::Extract::MaketextCallPhrases version 0.4
 
 =head1 SYNOPSIS
 
@@ -362,8 +398,7 @@ The regex should simply match and remain simple as it gets used by the parser wh
         [ qr/\_\(?/, sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ } ],
     ],
 
-=item 'no_
-'
+=item 'no_default_regex'
 
 If you are using 'regexp_conf' then setting this to true will avoid using the default maketext() lookup. (i.e. only use 'regexp_conf')
 
@@ -389,7 +424,7 @@ Some examples of things that might match but would not :
 
 =item 'ignore_perlish_statement'
 
-Boolean (default is false) that when true will cause matches that look like a statement to be put in 'debug_ignored_matches' instead of a result with a 'type' os 'no_arg'.
+Boolean (default is false) that when true will cause matches that look like a statement to be put in 'debug_ignored_matches' instead of a result with a 'type' of 'no_arg'.
 
 =item 'ignore_perlish_comment'
 
@@ -429,6 +464,12 @@ Available via get_phrases_in_file() only, not get_phrases_in_text().
 
 The line number the offset applies to. If a phrase spans more than one line it should be the line it starts on - but you're too smart to let the phrase dictate output format right ;p?
 
+=item 'file'
+
+Available via get_phrases_in_file() only, not get_phrases_in_text().
+
+The file the result is from. Useful when aggregating results from multiple files.
+
 =item 'matched'
 
 Chunk that matched the "maketext call" regex.
@@ -436,6 +477,18 @@ Chunk that matched the "maketext call" regex.
 =item 'regexp' 
 
 The array reference used to match this call/phrase. It is the same thing as each array ref passed in the regexp_conf list.
+
+=item 'quotetype'
+
+If the match was in double quote context it will be 'double'. Soecial like \t and \n are interpolated.
+
+If the match was in single quote context it will be 'single'. Specials like \t and \n remain literal.
+
+Otherwise it won't exist.
+
+=item 'heredoc'
+
+If the match was a here doc, it will contain the 
 
 =item 'is_warning'
 
