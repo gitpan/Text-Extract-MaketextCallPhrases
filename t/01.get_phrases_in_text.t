@@ -1,4 +1,4 @@
-use Test::More tests => 372;
+use Test::More tests => 390;
 
 BEGIN {
     use_ok('Text::Extract::MaketextCallPhrases');
@@ -110,6 +110,46 @@ for my $blob ( _get_blob(0), _get_blob(1) ) {
 }
 
 is( get_phrases_in_text('maketext(q{\\!\\@\\#\\$\\%\\^\\&\\*\\(\\)\\_})')->[0]{'phrase'}, q{!@#$%^&*()_}, 'quotemeta() is unescaped' );
+
+my $orig = <<'END_ORIG';
+  maketext("yo yo\nba ba\nzi zi\n");
+  maketext('yo yo\nba ba\nzi zi\n');
+  maketext("I \xe2\x99\xa5 perl");
+  maketext('I \xe2\x99\xa5 perl');
+  maketext("I \x{2665} perl");
+  maketext('I \x{2665} perl');
+  maketext("one
+  
+ two
+    
+ three\n");
+ maketext("Hello \"World\" DQ");
+ maketext('Hello \'World\' SQ');
+END_ORIG
+
+my $orig_res = get_phrases_in_text($orig);
+is( $orig_res->[0]->{'phrase'},        "yo yo\nba ba\nzi zi\n", 'phrase is transmogrified w DQ' );
+is( $orig_res->[0]->{'original_text'}, 'yo yo\nba ba\nzi zi\n', 'original_text is not transmogrified w/ DQ' );
+is( $orig_res->[1]->{'phrase'},        'yo yo\nba ba\nzi zi\n', 'phrase is not transmogrified w/ SQ' );
+is( $orig_res->[1]->{'original_text'}, 'yo yo\nba ba\nzi zi\n', 'original_text is not transmogrified q/ SQ' );
+
+is( $orig_res->[2]->{'phrase'},        "I \xe2\x99\xa5 perl", 'utf-8 grapheme phrase istransmogrified w/ DQ' );
+is( $orig_res->[2]->{'original_text'}, 'I \xe2\x99\xa5 perl', 'utf-8 grapheme original_text is not transmogrified w/ DQ' );
+is( $orig_res->[3]->{'phrase'},        "I \xe2\x99\xa5 perl", 'utf-8 grapheme phrase is still transmogrified w/ SQ' );
+is( $orig_res->[3]->{'original_text'}, 'I \xe2\x99\xa5 perl', 'utf-8 grapheme original_text is not transmogrified w/ SQ' );
+
+is( $orig_res->[4]->{'phrase'},        'I \x{2665} perl', 'unicode grapheme phrase is not transmogrified w/ DQ' );
+is( $orig_res->[4]->{'original_text'}, 'I \x{2665} perl', 'unicode grapheme original_text is not transmogrified w/ DQ' );
+is( $orig_res->[5]->{'phrase'},        'I \x{2665} perl', 'unicode grapheme phrase is not transmogrified w/ SQ' );
+is( $orig_res->[5]->{'original_text'}, 'I \x{2665} perl', 'unicode grapheme original_text is not transmogrified w/ SQ' );
+
+is( $orig_res->[6]->{'phrase'},        "one\n  \n two\n    \n three\n",  'multiline phrase is transmogrified w DQ' );
+is( $orig_res->[6]->{'original_text'}, "one\n  \n two\n    \n three\\n", 'multiline original_text is not transmogrified w/ DQ' );
+
+is( $orig_res->[7]->{'phrase'},        q{Hello "World" DQ},     'DQ escaped phrase is transmogrified w DQ' );
+is( $orig_res->[7]->{'original_text'}, q{Hello \\"World\\" DQ}, 'DQ escapes original_text is not transmogrified w/ DQ' );
+is( $orig_res->[8]->{'phrase'},        q{Hello 'World' SQ},     'SQ escaped phrase is transmogrified w DQ' );
+is( $orig_res->[8]->{'original_text'}, q{Hello \\'World\\' SQ}, 'SQ escapes original_text is not transmogrified w/ DQ' );
 
 my $parened_here_text = <<'END_HERE';
 maketext(<<"IHERE", "arg", "argx", "argy");

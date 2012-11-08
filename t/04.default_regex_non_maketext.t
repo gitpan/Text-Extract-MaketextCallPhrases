@@ -1,4 +1,4 @@
-use Test::More tests => 12 + ( 3 * 5 );
+use Test::More tests => 14 + ( 3 * 5 );
 
 use Text::Extract::MaketextCallPhrases;
 
@@ -15,6 +15,8 @@ $foo = translatable 'translatable() I am no in parens, ick';
 dispath(translatable('translatable() in function call'))
 dispath(   translatable('translatable() in function call space')   )
 This test contains the word translatable but is not a fucntion call.
+<cptext 'Hello cPanel Tag'>
+[% cptext("Hello cPanel TT") %]
 END_EXAMP
 
 my $results = get_phrases_in_text($blob);
@@ -39,3 +41,7 @@ for my $meth (qw(lextext maketext_html_context maketext_ansi_context  maketext_p
     is( $results->[1]->{'phrase'}, "$meth() in function", "$meth() found again" );
     is( $results->[2]->{'phrase'}, "$meth() odd",         "$meth() found with odd call" );
 }
+
+$results = get_phrases_in_text( $blob, { cpanel_mode => 1 } );
+is( $results->[10]->{'phrase'}, "Hello cPanel Tag", "cptext tag" );
+is( $results->[11]->{'phrase'}, "Hello cPanel TT",  "cptext TT" );

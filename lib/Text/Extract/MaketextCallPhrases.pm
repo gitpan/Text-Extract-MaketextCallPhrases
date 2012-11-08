@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.4';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.5';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -32,6 +32,10 @@ sub get_phrases_in_text {
 
     if ( $conf_hr->{'encode_unicode_slash_x'} ) {
         Module::Want::have_mod('Encode') || die $@;
+    }
+
+    if ( $conf_hr->{'cpanel_mode'} ) {
+        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ],;
     }
 
     my @results;
@@ -127,8 +131,6 @@ sub get_phrases_in_text {
                     $phrase                  = $inside;
                 }
                 elsif ( defined $inside && $inside ) {
-
-                    # $result_hr->{'original'} = $phrase;
                     $phrase = $inside;
 
                     if ( $type eq 'qw' ) {
@@ -144,8 +146,6 @@ sub get_phrases_in_text {
                     }
                 }
                 elsif ( defined $opener && defined $inside && defined $closer && defined $phrase && $phrase eq "$opener$inside$closer" ) {
-
-                    # $result_hr->{'original'} = $phrase;
                     $result_hr->{'is_error'} = 1;
                     $result_hr->{'type'}     = 'empty';
                     $phrase                  = $inside;
@@ -214,6 +214,7 @@ sub get_phrases_in_text {
                 }
             }
             else {
+                $result_hr->{'original_text'} = $phrase;
 
                 # make sure its wasn't a tricky variable in quotes like maketext("$foo->{zip}")
                 # '$foo->{zip}' '   $foo->{zip} ' " $foo->{zip} " to but that seems like a good idea to flag as wonky and in need of human follow up
@@ -321,7 +322,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.4
+This document describes Text::Extract::MaketextCallPhrases version 0.5
 
 =head1 SYNOPSIS
 
@@ -402,6 +403,10 @@ The regex should simply match and remain simple as it gets used by the parser wh
 
 If you are using 'regexp_conf' then setting this to true will avoid using the default maketext() lookup. (i.e. only use 'regexp_conf')
 
+=item 'cpanel_mode'
+
+Boolean. Default false, when true it enables cPanel specific checks (e.g. cptext call syntax).
+
 =item 'encode_unicode_slash_x'
 
 Boolean (default is false) that when true will turn Unicode string notation \x{....} into a non-grapheme byte string. This will cause L<Encode>  to be loaded if needed.
@@ -432,7 +437,7 @@ Boolean (default is false) that when true will cause matches that look like a pe
 
 Since this is parsing arbitrary text and thus there is no real context, interpreting what is a comment or not becomes very complex and context sensitive.
 
-If you do not want to grab phrases from commented out data and this check does not work with this text's commenting scheme then yo could instead strip comments out of the text before parsing.
+If you do not want to grab phrases from commented out data and this check does not work with this text's commenting scheme then you could instead strip comments out of the text before parsing.
 
 =back
 
@@ -470,6 +475,12 @@ Available via get_phrases_in_file() only, not get_phrases_in_text().
 
 The file the result is from. Useful when aggregating results from multiple files.
 
+=item 'original_text'
+
+This is 'phrase' before any final normalizations happens.
+
+You should be able to match the result's exact instance of the phrase if you find qr/\Q$rh->{'original_text'}\E/ right around $rh->{'file'} -> $rh->{'line'} -> $rh->{'offset'}.
+
 =item 'matched'
 
 Chunk that matched the "maketext call" regex.
@@ -488,7 +499,7 @@ Otherwise it won't exist.
 
 =item 'heredoc'
 
-If the match was a here doc, it will contain the 
+If the match was a here-doc, it will contain the opening token/the left delimiter, including any quotes.
 
 =item 'is_warning'
 
@@ -569,7 +580,7 @@ L<Text::Balanced>
 
 L<String::Unquotemeta>
 
-L<Module::Want> (In order to re-use the "name space" regex it has - hate to maintain it in more than one place)
+L<Module::Want>
 
 =head1 INCOMPATIBILITIES
 
