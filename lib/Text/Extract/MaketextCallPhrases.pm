@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.5';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.6';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -39,6 +39,7 @@ sub get_phrases_in_text {
     }
 
     my @results;
+    my %offset_seen;
 
     # I like this alignment better than what tidy does, seems clearer to me even if a bit overkill perhaps
     #tidyoff
@@ -256,7 +257,7 @@ sub get_phrases_in_text {
 
             $result_hr->{'phrase'} = $phrase;
 
-            push @results, $result_hr;
+            push @results, $result_hr if ++$offset_seen{ $result_hr->{'offset'} } == 1;
         }
     }
 
@@ -322,7 +323,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.5
+This document describes Text::Extract::MaketextCallPhrases version 0.6
 
 =head1 SYNOPSIS
 

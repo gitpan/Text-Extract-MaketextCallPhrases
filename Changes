@@ -1,10 +1,14 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
+0.6  Thu Nov  8 14:14:39 CST 2012
+    - add offset_seen internal check
+    - add RELEASE_TESTING check above eval in perlcritic test
+
 0.5  Wed Nov  7 20:56:10 2012
     - rt 80661: POD
     - add 'original_text' key to result hash
     - add 'cpanel_mode' to hashref of args
-    
+
 0.4  Mon Nov  5 23:06:35 2012
     - rt 80488: bump version in POD
     - rt 80642: POD: type' os 'no_arg' =~ s/os/of/
