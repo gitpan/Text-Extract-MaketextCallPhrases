@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.6';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.7';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -116,7 +116,15 @@ sub get_phrases_in_text {
 
                 $result_hr->{'quotetype'} = 'single' if ( defined $opener && $opener eq "'" ) || ( defined $type && ( $type eq 'q' || $type eq 'qw' ) );
                 $result_hr->{'quotetype'} = 'double' if ( defined $opener && $opener eq '"' ) || ( defined $type && $type eq 'qq' );
+                if ( $result_hr->{'quotetype'} ) {
+                    $result_hr->{'quote_before'} = $type . $opener;
+                    $result_hr->{'quote_after'}  = $closer;
+                }
+
                 if ( defined $type && $type eq '<<' ) {
+                    $result_hr->{'quote_before'} = $type . $opener;
+                    $result_hr->{'quote_after'}  = $closer;
+
                     $result_hr->{'heredoc'} = $opener;
                     if ( substr( $opener, 0, 1 ) eq "'" ) {
                         $result_hr->{'quotetype'} = 'single';
@@ -135,6 +143,21 @@ sub get_phrases_in_text {
                     $phrase = $inside;
 
                     if ( $type eq 'qw' ) {
+                        if ( $phrase =~ m/\A(\s+)/ ) {
+                            $result_hr->{'quote_before'} .= $1;
+                            $phrase =~ s/\A(\s+)//;
+                        }
+                        if ( $phrase =~ m/(\s+)\z/ ) {
+                            $result_hr->{'quote_after'} = $1 . $result_hr->{'quote_after'};
+                            $phrase =~ s/(\s+)\z//;
+                        }
+
+                        if ( $phrase =~ m/(\s+)/ ) {
+                            $result_hr->{'quote_after'} = $1;
+                        }
+
+                        # otherwise leave quote_after asis for cases like this: qw(foo)
+
                         ($phrase) = split( /\s+/, $phrase, 2 );
                     }
                     elsif ( $type eq 'qx' || $opener eq '`' ) {
@@ -323,7 +346,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.6
+This document describes Text::Extract::MaketextCallPhrases version 0.7
 
 =head1 SYNOPSIS
 
@@ -492,11 +515,17 @@ The array reference used to match this call/phrase. It is the same thing as each
 
 =item 'quotetype'
 
-If the match was in double quote context it will be 'double'. Soecial like \t and \n are interpolated.
+If the match was in double quote context it will be 'double'. Specials like \t and \n are interpolated.
 
 If the match was in single quote context it will be 'single'. Specials like \t and \n remain literal.
 
 Otherwise it won't exist.
+
+=item 'quote_before' and 'quote_after'
+
+If 'quotetype' is set these will be set also, it will be the quote-string before and after the phrase. For example, w/ 'foo' they'd both be '. For q{foo} they'd be q{ and } respectively.
+
+If 'heredoc' is set then keep the following caveat in mind: Due to how L<Text::Balanced> has to handle here docs 'quote_before' will not contain anything after '<<TOKEN'. i.e. it is not exactly the string that was before it in the source code.
 
 =item 'heredoc'
 

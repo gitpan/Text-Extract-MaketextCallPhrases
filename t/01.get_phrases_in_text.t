@@ -1,4 +1,4 @@
-use Test::More tests => 390;
+use Test::More tests => 430;
 
 BEGIN {
     use_ok('Text::Extract::MaketextCallPhrases');
@@ -20,11 +20,25 @@ for my $blob ( _get_blob(0), _get_blob(1) ) {
     is( $results->[5]->{'phrase'}, "I am HERE DOC\n",        "Normal, Here Doc" );
     is( $results->[6]->{'phrase'}, "I am\n\nmultiline",      "Normal, Multi-line" );
 
-    is( $results->[0]->{'quotetype'}, 'double', "quotetype for Normal, Double Quotes" );
-    is( $results->[1]->{'quotetype'}, 'single', "quotetype for Normal, Single Quotes" );
-    is( $results->[2]->{'quotetype'}, 'double', "quotetype for Normal, qq{} Quotes" );
-    is( $results->[3]->{'quotetype'}, 'single', "quotetype for Normal, q{} Quotes" );
-    is( $results->[4]->{'quotetype'}, 'single', "quotetype for Normal, qw() Quotes" );
+    is( $results->[0]->{'quotetype'},    'double', "quotetype for Normal, Double Quotes" );
+    is( $results->[0]->{'quote_before'}, '"',      'quote_before Double Quotes' );
+    is( $results->[0]->{'quote_after'},  '"',      'quote_after Double Quotes' );
+
+    is( $results->[1]->{'quotetype'},    'single', "quotetype for Normal, Single Quotes" );
+    is( $results->[1]->{'quote_before'}, "'",      'quote_before Single Quotes' );
+    is( $results->[1]->{'quote_after'},  "'",      'quote_after Single Quotes' );
+
+    is( $results->[2]->{'quotetype'},    'double', "quotetype for Normal, qq{} Quotes" );
+    is( $results->[2]->{'quote_before'}, 'qq{',    'quote_before w/ qq{} Quotes' );
+    is( $results->[2]->{'quote_after'},  '}',      'quote_after w/ qq{} Quotes' );
+
+    is( $results->[3]->{'quotetype'},    'single', "quotetype for Normal, q{} Quotes" );
+    is( $results->[3]->{'quote_before'}, 'q{',     'quote_before w/ q{} Quotes' );
+    is( $results->[3]->{'quote_after'},  '}',      'quote_after w/ q{} Quotes' );
+
+    is( $results->[4]->{'quotetype'},    'single', "quotetype for Normal, qw() Quotes" );
+    is( $results->[4]->{'quote_before'}, 'qw(',    'quote_before w/ qw()' );
+    is( $results->[4]->{'quote_after'},  ' ',      'quote_after w/ qw()' );
 
     is( $results->[7]->{'phrase'},  "Greetings Programs DQ BS",  "Normal space, Double Quotes" );
     is( $results->[8]->{'phrase'},  "Greetings Programs SQ BS",  "Normal space, Single Quotes" );
@@ -151,6 +165,21 @@ is( $orig_res->[7]->{'original_text'}, q{Hello \\"World\\" DQ}, 'DQ escapes orig
 is( $orig_res->[8]->{'phrase'},        q{Hello 'World' SQ},     'SQ escaped phrase is transmogrified w DQ' );
 is( $orig_res->[8]->{'original_text'}, q{Hello \\'World\\' SQ}, 'SQ escapes original_text is not transmogrified w/ DQ' );
 
+my $qw_text_res = get_phrases_in_text("maketext( qw(foo) ) maketext(qw(  foo )) maketext(qw( foo bar baz )  )");
+
+is( $qw_text_res->[0]->{'phrase'},       "foo",    'parsed OK qw(WORD)' );
+is( $qw_text_res->[0]->{'quotetype'},    'single', "quotetype qw(WORD)" );
+is( $qw_text_res->[0]->{'quote_before'}, 'qw(',    'quote_before qw(WORD)' );
+is( $qw_text_res->[0]->{'quote_after'},  ")",      'quote_after qw(WORD)' );
+is( $qw_text_res->[1]->{'phrase'},       "foo",    'parsed OK qw(  WORD )' );
+is( $qw_text_res->[1]->{'quotetype'},    'single', "quotetype qw(  WORD )" );
+is( $qw_text_res->[1]->{'quote_before'}, 'qw(  ',  'quote_before qw(  WORD )' );
+is( $qw_text_res->[1]->{'quote_after'},  " )",     'quote_after qw(  WORD )' );
+is( $qw_text_res->[2]->{'phrase'},       "foo",    'parsed OK qw( WORD WORD WORD )' );
+is( $qw_text_res->[2]->{'quotetype'},    'single', "quotetype qw( WORD WORD WORD )" );
+is( $qw_text_res->[2]->{'quote_before'}, 'qw( ',   'quote_before qw( WORD WORD WORD)' );
+is( $qw_text_res->[2]->{'quote_after'},  " ",      'quote_after qw( WORD WORD WORD)' );
+
 my $parened_here_text = <<'END_HERE';
 maketext(<<"IHERE", "arg", "argx", "argy");
 yo yo
@@ -160,9 +189,11 @@ IHERE
 END_HERE
 
 my $parened_here_text_res = get_phrases_in_text($parened_here_text);
-is( $parened_here_text_res->[0]->{'phrase'},    "yo yo\nba ba\nzi zi\n", 'paren-ed here doc parsed OK' );
-is( $parened_here_text_res->[0]->{'quotetype'}, 'double',                "paren-ed here doc quotetype" );
-is( $parened_here_text_res->[0]->{'heredoc'},   '"IHERE"',               "paren-ed here doc heredoc" );
+is( $parened_here_text_res->[0]->{'phrase'},       "yo yo\nba ba\nzi zi\n", 'paren-ed here doc parsed OK' );
+is( $parened_here_text_res->[0]->{'quotetype'},    'double',                "paren-ed here doc quotetype" );
+is( $parened_here_text_res->[0]->{'quote_before'}, '<<"IHERE"',             'quote_before paren-ed here doc' );
+is( $parened_here_text_res->[0]->{'quote_after'},  "IHERE\n",               'quote_after paren-ed here doc' );
+is( $parened_here_text_res->[0]->{'heredoc'},      '"IHERE"',               "paren-ed here doc heredoc" );
 
 my $quotes_here_text = <<'END_HERE';
 maketext(<<"END_DOUB";
@@ -183,15 +214,22 @@ END_IMPL
 END_HERE
 
 my $quotes_here_text_results = get_phrases_in_text($quotes_here_text);
-is( $quotes_here_text_results->[0]->{'phrase'},    "I am double quoted.\n",         "quotetype for Normal, Here Doc (double)" );
-is( $quotes_here_text_results->[1]->{'phrase'},    "I am single quoted.\n",         "quotetype for Normal, Here Doc (single)" );
-is( $quotes_here_text_results->[2]->{'phrase'},    "I am implied double quoted.\n", "quotetype for Normal, Here Doc (implicit)" );
-is( $quotes_here_text_results->[0]->{'quotetype'}, 'double',                        "quotetype for Normal, Here Doc (double)" );
-is( $quotes_here_text_results->[1]->{'quotetype'}, 'single',                        "quotetype for Normal, Here Doc (single)" );
-is( $quotes_here_text_results->[2]->{'quotetype'}, 'double',                        "quotetype for Normal, Here Doc (implicit)" );
-is( $quotes_here_text_results->[0]->{'heredoc'},   '"END_DOUB"',                    "heredoc for Normal, Here Doc (double)" );
-is( $quotes_here_text_results->[1]->{'heredoc'},   q{'END_SING'},                   "heredoc for Normal, Here Doc (single)" );
-is( $quotes_here_text_results->[2]->{'heredoc'},   'END_IMPL',                      "heredoc for Normal, Here Doc (implicit)" );
+is( $quotes_here_text_results->[0]->{'phrase'},       "I am double quoted.\n",         "quotetype for Normal, Here Doc (double)" );
+is( $quotes_here_text_results->[1]->{'phrase'},       "I am single quoted.\n",         "quotetype for Normal, Here Doc (single)" );
+is( $quotes_here_text_results->[2]->{'phrase'},       "I am implied double quoted.\n", "quotetype for Normal, Here Doc (implicit)" );
+is( $quotes_here_text_results->[0]->{'quotetype'},    'double',                        "quotetype for Normal, Here Doc (double)" );
+is( $quotes_here_text_results->[1]->{'quotetype'},    'single',                        "quotetype for Normal, Here Doc (single)" );
+is( $quotes_here_text_results->[2]->{'quotetype'},    'double',                        "quotetype for Normal, Here Doc (implicit)" );
+is( $quotes_here_text_results->[0]->{'quote_before'}, '<<"END_DOUB"',                  'quote_before Here Doc (double)' );
+is( $quotes_here_text_results->[0]->{'quote_after'},  "END_DOUB\n",                    'quote_after Here Doc (double)' );
+is( $quotes_here_text_results->[1]->{'quote_before'}, q{<<'END_SING'},                 'quote_before Here Doc (single)' );
+is( $quotes_here_text_results->[1]->{'quote_after'},  "END_SING\n",                    'quote_after Here Doc (single)' );
+is( $quotes_here_text_results->[2]->{'quote_before'}, '<<END_IMPL',                    'quote_before Here Doc (implicit)' );
+is( $quotes_here_text_results->[2]->{'quote_after'},  "END_IMPL\n",                    'quote_after Here Doc (implicit)' );
+
+is( $quotes_here_text_results->[0]->{'heredoc'}, '"END_DOUB"',  "heredoc for Normal, Here Doc (double)" );
+is( $quotes_here_text_results->[1]->{'heredoc'}, q{'END_SING'}, "heredoc for Normal, Here Doc (single)" );
+is( $quotes_here_text_results->[2]->{'heredoc'}, 'END_IMPL',    "heredoc for Normal, Here Doc (implicit)" );
 
 my $quoth_sing_res = get_phrases_in_text(q{maketext('$var') maketext('  $var  ') maketext('\ttab newline\n')});
 _is_type( $quoth_sing_res, 'perlish', 0 .. 1 );
