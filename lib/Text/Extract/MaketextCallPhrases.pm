@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.7';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.8';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -54,7 +54,7 @@ sub get_phrases_in_text {
         my $text_working_copy = $text;
         my $original_len      = length($text_working_copy);
 
-        while ( $text_working_copy =~ m/($regexp->[0])/ ) {
+        while ( defined $text_working_copy && $text_working_copy =~ m/($regexp->[0])/ ) {
             my $matched = $1;
             my $pre;
             ( $pre, $text_working_copy ) = split( $regexp->[0], $text_working_copy, 2 );
@@ -113,6 +113,7 @@ sub get_phrases_in_text {
                 # undef $@;
                 my ( $type, $inside, $opener, $closer );
                 ( $phrase, $text_working_copy, undef, $type, $opener, $inside, $closer ) = Text::Balanced::extract_quotelike($text_working_copy);
+                $text_working_copy = '' if !defined $text_working_copy;
 
                 $result_hr->{'quotetype'} = 'single' if ( defined $opener && $opener eq "'" ) || ( defined $type && ( $type eq 'q' || $type eq 'qw' ) );
                 $result_hr->{'quotetype'} = 'double' if ( defined $opener && $opener eq '"' ) || ( defined $type && $type eq 'qq' );
@@ -346,7 +347,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.7
+This document describes Text::Extract::MaketextCallPhrases version 0.8
 
 =head1 SYNOPSIS
 
