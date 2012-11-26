@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.8';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.9';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -34,8 +34,9 @@ sub get_phrases_in_text {
         Module::Want::have_mod('Encode') || die $@;
     }
 
-    if ( $conf_hr->{'cpanel_mode'} ) {
-        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ],;
+    if ( $conf_hr->{'cpanel_mode'} && $conf_hr->{'cpanel_mode'} != 0 ) {
+        $conf_hr->{'cpanel_mode'} = '0E0';
+        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ];
     }
 
     my @results;
@@ -347,7 +348,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.8
+This document describes Text::Extract::MaketextCallPhrases version 0.9
 
 =head1 SYNOPSIS
 

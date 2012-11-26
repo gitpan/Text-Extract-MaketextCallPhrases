@@ -1,8 +1,11 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
+0.9  Mon Nov 26 13:38:52 2012
+    - remove loop bottleneck in cpanel mode
+
 0.8  Wed Nov 21 21:53:37 2012
     - address uninit warnings
-    
+
 0.7  Sat Nov 17 20:12:42 2102
     - rt 81205 - POD typo
     - rt 81206 - Added quote_before, quote_after
