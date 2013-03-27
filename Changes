@@ -1,5 +1,9 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
+0.91  Thu Mar 21 07:40:45 CDT 2013
+    - account for tokens w/ trailing WS
+    - add support for EOL '## no extract maketext' notation
+
 0.9  Mon Nov 26 13:38:52 2012
     - remove loop bottleneck in cpanel mode
 

@@ -9,6 +9,7 @@ t/01.get_phrases_in_text.t
 t/02.get_phrases_in_file.t
 t/03.debug_ignored_matches.t
 t/04.default_regex_non_maketext.t
+t/05.no_extract_maketext.t
 t/perlcritic.t
 t/pod-coverage.t
 t/pod.t

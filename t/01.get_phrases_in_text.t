@@ -1,4 +1,4 @@
-use Test::More tests => 430;
+use Test::More tests => 442;
 
 BEGIN {
     use_ok('Text::Extract::MaketextCallPhrases');
@@ -244,6 +244,21 @@ is( $quoth_doub_res->[0]->{'phrase'},    '$var',            "\$var in single quo
 is( $quoth_doub_res->[1]->{'phrase'},    '  $var  ',        "\$var in single quotes w/ space" );
 is( $quoth_doub_res->[2]->{'phrase'},    "\ttab newline\n", "slash chars in double quote interpolated" );
 is( $quoth_doub_res->[0]->{'quotetype'}, 'double',          "quotetype for quoted \$var in double quotes" );
+
+# trailing WS that Text::Balanced ignores which then can throw off the offset
+my %post_token_space = (
+    "01 maketext('none')"     => [ 'none',  12 ],
+    "02 maketext( 'one')"     => [ 'one',   13 ],
+    "03 maketext(  'two')"    => [ 'two',   14 ],
+    "04 maketext(   'three')" => [ 'three', 15 ],
+    "05 maketext(    'four')" => [ 'four',  16 ],
+    "06 maketext(\t'tab')"    => [ 'tab',   13 ],
+);
+for my $item ( sort keys %post_token_space ) {
+    my $post_token_space = get_phrases_in_text($item);
+    is( $post_token_space->[0]->{'phrase'}, $post_token_space{$item}->[0], "space after token phrase: $post_token_space{$item}->[0]" );
+    is( $post_token_space->[0]->{'offset'}, $post_token_space{$item}->[1], "space after token offset: $post_token_space{$item}->[0]" );
+}
 
 sub _is_type {
     my $results = shift;

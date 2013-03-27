@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.9';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.91';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -55,10 +55,22 @@ sub get_phrases_in_text {
         my $text_working_copy = $text;
         my $original_len      = length($text_working_copy);
 
-        while ( defined $text_working_copy && $text_working_copy =~ m/($regexp->[0])/ ) {
+        while ( defined $text_working_copy && $text_working_copy =~ m/($regexp->[0]|## no extract maketext)/ ) {
             my $matched = $1;
+
+            # we have a (possibly multiline) chunk w/ notation-not-preceeded-by-token that we should ignore
+            if ( $matched eq '## no extract maketext' ) {
+                $text_working_copy =~ s/.*## no extract maketext[^\n]*//;
+                next;
+            }
+
             my $pre;
-            ( $pre, $text_working_copy ) = split( $regexp->[0], $text_working_copy, 2 );
+
+            # TODO: incorporate the \s* into results: 'post_token_ws' => $1 || '' ?
+            ( $pre, $text_working_copy ) = split( m/$regexp->[0]\s*/, $text_working_copy, 2 );    # the \s* takes into account trailing WS that Text::Balanced ignores which then can throw off the offset
+
+            # we have a token line that we should ignore
+            next if $text_working_copy =~ s/^[^\n]*## no extract maketext[^\n]*//;
 
             my $offset = $original_len - length($text_working_copy);
 
@@ -348,7 +360,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.9
+This document describes Text::Extract::MaketextCallPhrases version 0.91
 
 =head1 SYNOPSIS
 
@@ -597,6 +609,38 @@ This should only happen in the last item and means that some data need prepended
 =back
 
 =back
+
+=head2 “## no extract maketext” notation
+
+If you have a token in the text being parsed that is not actually a maketext call (or is a maketext call that you want to ignore for some reason) you can mark it as such (i.e. so that it is not included in the results) by putting the string “## no extract maketext” after said token on the same line.
+
+    print $lh->maketext('I am a localized string!');
+    print $lh->maketext('I am not to be parsed for various undisclosed business reasons.'); ## no extract maketext
+    print $lh->maketext( ## no extract maketext
+        'I am not to be parsed for various undisclosed business reasons.'
+    …
+    # parse API format string:
+    if ($str =~ m/maketext\(/) { ## no extract maketext
+    …
+    # mock maketext for testing:
+    sub maketext { ## no extract maketext
+
+Even if you are not parsing perl code you can use it (i.e. the #s are part of the notation and happen to work as comments in perl).
+
+    $('#msg').text( LOCALE.maketext('I am a localized string!') );
+    $('#msg').text( LOCALE.maketext('I am not to be parsed for various undisclosed business reasons.'); // ## no extract maketext
+    $('#msg').text( LOCALE.maketext( // ## no extract maketext
+        'I am not to be parsed for various undisclosed business reasons.'
+    …
+    // parse API format string:
+    if (str.match(/maketext\(/)) { // ## no extract maketext
+    …
+    // mock maketext for testing:
+    function maketext(…) { // ## no extract maketext
+
+Any token-looking things after the notation on that line are also ignored.
+
+    maketext('I am ignored.') ## no extract maketext: could also be maketext('I am also ignored')
 
 =head1 DIAGNOSTICS
 
