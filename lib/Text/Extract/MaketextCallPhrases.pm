@@ -3,7 +3,7 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.91';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.92';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
@@ -36,7 +36,7 @@ sub get_phrases_in_text {
 
     if ( $conf_hr->{'cpanel_mode'} && $conf_hr->{'cpanel_mode'} != 0 ) {
         $conf_hr->{'cpanel_mode'} = '0E0';
-        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ];
+        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ], [ qr/Cpanel::Exception->new\(/, qr/\s*\)/ ];
     }
 
     my @results;
@@ -360,7 +360,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.91
+This document describes Text::Extract::MaketextCallPhrases version 0.92
 
 =head1 SYNOPSIS
 
@@ -384,7 +384,7 @@ You will probably have a collection of data that contains things like this:
 
 This module looks for the first argument to things that look like maketext() calls (See L</SEE ALSO>) so that you can process as needed (lint check, add to lexicon management system, etc).
 
-By default it looks for calls to maketext(), maketext_*_context(), lextext(), and translatable() (ala L<Locale::Maketext::Utils::MarkPhrase>). If you use a shortcut (e.g. _()) or an unperlish format, it can do that too (You might also want to look at L</SEE ALSO> for an alernative this module).
+By default it looks for calls to maketext(), maketext_*_context(), lextext(), and translatable() (ala L<Locale::Maketext::Utils::MarkPhrase>). If you use a shortcut (e.g. _()) or an unperlish format, it can do that too (You might also want to look at L</SEE ALSO> for an alternative this module).
 
 =head1 EXPORTS
 
@@ -396,13 +396,13 @@ get_phrases_in_text() and get_phrases_in_file() are exported by default unless y
 
 =head1 INTERFACE 
 
-These functions return an array ref containg a "result hash" (described below) for each phrase found, in the order they appear in the original text.
+These functions return an array ref containing a "result hash" (described below) for each phrase found, in the order they appear in the original text.
 
 =head2 get_phrases_in_text()
 
 The first argument is the text you want to parse for phrases.
 
-The second optional argument is a hashref of options. It's keys can be as follows:
+The second optional argument is a hashref of options. It’s keys can be as follows:
 
 =over 4
 
@@ -489,7 +489,7 @@ If it can't be opened  returns false:
 
 =head2 The "result hash"
 
-This hash contains the following keys that describe the phrase that was pasred.
+This hash contains the following keys that describe the phrase that was parsed.
 
 =over 4
 
@@ -591,9 +591,9 @@ The call had no arguments
 
 =item 'multiline'
 
-The call's argument did not contain a full entity. Probably due to a multiline phrase that is cut off at the end of the text being parsed.
+The call’s argument did not contain a full entity. Probably due to a multiline phrase that is cut off at the end of the text being parsed.
 
-This should only happen in the last item and means that some data need prependeds to the next chunk you will be parsing in effort to get a complete, parsable, argument.
+This should only happen in the last item and means that some data need prepended to the next chunk you will be parsing in effort to get a complete, parsable, argument.
 
     my $string_1 = "maketext('I am the very model of ";
     my $string_2 = "of a modern major general.')";

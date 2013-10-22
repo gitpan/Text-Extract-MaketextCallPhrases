@@ -1,4 +1,4 @@
-use Test::More tests => 14 + ( 3 * 5 );
+use Test::More tests => 18 + ( 3 * 5 );
 
 use Text::Extract::MaketextCallPhrases;
 
@@ -17,6 +17,15 @@ dispath(   translatable('translatable() in function call space')   )
 This test contains the word translatable but is not a fucntion call.
 <cptext 'Hello cPanel Tag'>
 [% cptext("Hello cPanel TT") %]
+Yo Cpanel::Exception->new('Ka boom no args') Bar
+Yo Cpanel::Exception->new(
+    'Ka boom next line no args'
+) Bar
+Yo Cpanel::Exception->new('Ka boom no args [_1]', 42) Bar
+Yo Cpanel::Exception->new(
+    'Ka boom next line no args [_1] [_2]', 37
+    42
+) Bar
 END_EXAMP
 
 my $results = get_phrases_in_text($blob);
@@ -43,5 +52,9 @@ for my $meth (qw(lextext maketext_html_context maketext_ansi_context  maketext_p
 }
 
 $results = get_phrases_in_text( $blob, { cpanel_mode => 1 } );
-is( $results->[10]->{'phrase'}, "Hello cPanel Tag", "cptext tag" );
-is( $results->[11]->{'phrase'}, "Hello cPanel TT",  "cptext TT" );
+is( $results->[10]->{'phrase'}, "Hello cPanel Tag",                    "cptext tag" );
+is( $results->[11]->{'phrase'}, "Hello cPanel TT",                     "cptext TT" );
+is( $results->[12]->{'phrase'}, "Ka boom no args",                     "Cpanel::Exception->new() one line no args" );
+is( $results->[13]->{'phrase'}, "Ka boom next line no args",           "Cpanel::Exception->new() next line no args" );
+is( $results->[14]->{'phrase'}, "Ka boom no args [_1]",                "Cpanel::Exception->new() one line w/ args" );
+is( $results->[15]->{'phrase'}, "Ka boom next line no args [_1] [_2]", "Cpanel::Exception->new() next line w/ args" );

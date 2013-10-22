@@ -1,4 +1,4 @@
-#!perl -T
+#!perl
 
 use Test::More;
 plan skip_all => 'Critic tests are only run in RELEASE_TESTING mode.' unless $ENV{'RELEASE_TESTING'};

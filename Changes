@@ -1,29 +1,33 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
-0.91  Thu Mar 21 07:40:45 CDT 2013
+0.92  2013-10-22 12:09:33
+    - add more RELEASE_TESTING tests
+    - add Cpanel::Exception->new to cpanel_mode parser
+    
+0.91  2013-03-21 07:40:45
     - account for tokens w/ trailing WS
     - add support for EOL '## no extract maketext' notation
 
-0.9  Mon Nov 26 13:38:52 2012
+0.9  2012-11-26 13:38:52
     - remove loop bottleneck in cpanel mode
 
-0.8  Wed Nov 21 21:53:37 2012
+0.8  2012-11-21 21:53:37
     - address uninit warnings
 
-0.7  Sat Nov 17 20:12:42 2102
+0.7  2012 11-21 20:12:42
     - rt 81205 - POD typo
     - rt 81206 - Added quote_before, quote_after
 
-0.6  Thu Nov  8 14:14:39 2012
+0.6  2012-11-08 14:14:39
     - add offset_seen internal check
     - add RELEASE_TESTING check above eval in perlcritic test
 
-0.5  Wed Nov  7 20:56:10 2012
+0.5  2012-11-07 20:56:10
     - rt 80661: POD
     - add 'original_text' key to result hash
     - add 'cpanel_mode' to hashref of args
 
-0.4  Mon Nov  5 23:06:35 2012
+0.4  2012-11-05 23:06:35
     - rt 80488: bump version in POD
     - rt 80642: POD: type' os 'no_arg' =~ s/os/of/
     - rt 80641: POD: 'no_' should be 'no_default_regex'
@@ -33,15 +37,15 @@ Revision history for Text-Extract-MaketextCallPhrases
     - treat mt("$var") et. al. like a perlish type
     - added 'heredoc' key to result hash
 
-0.3  Sun Oct 28 17:48:23 2012
+0.3  2012-20-28 17:48:23
     - rt 76699 Add “=encoding utf-8” to top of POD
     - rt 76700: Add test for “foo(<<HEAR_DOC, @args);” style heredocs
     - rt 77538: add helper methods to default regex
     - move Critic and POD tests to RELEASE_TESTING mode
 
-0.2  Wed Aug 31 17:51:04 2011
+0.2  2011-08-31 17:51:04
     - rt 70652 items
 
-0.1  Wed Jan  5 21:18:02 2011
+0.1  2011-01-05W 21:18:02
        Initial release.
 
