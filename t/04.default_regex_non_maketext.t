@@ -1,4 +1,4 @@
-use Test::More tests => 18 + ( 3 * 5 );
+use Test::More tests => 37 + ( 3 * 5 );
 
 use Text::Extract::MaketextCallPhrases;
 
@@ -26,6 +26,44 @@ Yo Cpanel::Exception->new(
     'Ka boom next line no args [_1] [_2]', 37
     42
 ) Bar
+
+Cpanel::Exception::Foo->new('C E one more');
+Cpanel::Exception::Foo::Bar->new('C E two more');
+Cpanel::Exception::Foo::Bar::Baz->new('C E three more');
+
+Cpanel::Exception::create()
+Cpanel::Exception::create("Herp::Derp");
+Cpanel::Exception::create("Herp::Derp", 'Please herp your derp!');
+Cpanel::Exception::create("Herp::Derp", 'The herp has been derped: [_1]', [$err]);
+
+Cpanel::Exception::Foo::create()
+Cpanel::Exception::Foo::create("Herp::Derp");
+Cpanel::Exception::Foo::create("Herp::Derp", 'foo Please herp your derp!');
+Cpanel::Exception::Foo::create("Herp::Derp", 'foo The herp has been derped: [_1]', [$err]);
+
+Cpanel::Exception::Foo::Bar::create()
+Cpanel::Exception::Foo::Bar::create("Herp::Derp");
+Cpanel::Exception::Foo::Bar::create("Herp::Derp", 'bar Please herp your derp!');
+Cpanel::Exception::Foo::Bar::create("Herp::Derp", 'bar The herp has been derped: [_1]', [$err]);
+
+Cpanel::Exception::Foo::Bar::Baz::create()
+Cpanel::Exception::Foo::Bar::Baz::create("Herp::Derp");
+Cpanel::Exception::Foo::Bar::Baz::create("Herp::Derp", 'baz Please herp your derp!');
+Cpanel::Exception::Foo::Bar::Baz::create("Herp::Derp", 'baz The herp has been derped: [_1]', [$err]);
+
+# ? TODO ? ::create(PHRASE) (i.e. no NS w/ phrase) - might be too ambiguous to (want to) support
+
+Cpanel::Exception->create()
+Cpanel::Exception->create('I am method!')
+
+Cpanel::Exception::Foo->create()
+Cpanel::Exception::Foo->create('foo I am method!')
+
+Cpanel::Exception::Foo::Bar->create()
+Cpanel::Exception::Foo::Bar->create('bar I am method!')
+
+Cpanel::Exception::Foo::Bar::Baz->create()
+Cpanel::Exception::Foo::Bar::Baz->create('baz I am method!')
 END_EXAMP
 
 my $results = get_phrases_in_text($blob);
@@ -58,3 +96,37 @@ is( $results->[12]->{'phrase'}, "Ka boom no args",                     "Cpanel::
 is( $results->[13]->{'phrase'}, "Ka boom next line no args",           "Cpanel::Exception->new() next line no args" );
 is( $results->[14]->{'phrase'}, "Ka boom no args [_1]",                "Cpanel::Exception->new() one line w/ args" );
 is( $results->[15]->{'phrase'}, "Ka boom next line no args [_1] [_2]", "Cpanel::Exception->new() next line w/ args" );
+is( $results->[16]->{'phrase'}, "C E one more",                        "Cpanel::Exception::*->new() with one more NS chunk" );
+is( $results->[17]->{'phrase'}, "C E two more",                        "Cpanel::Exception::*->new() with two more NS chunks" );
+is( $results->[18]->{'phrase'}, "C E three more",                      "Cpanel::Exception::*->new() with three more NS chunks" );
+
+# the first/second ::create w/out the optional phrase should not be in the result, which is true if these pass:
+is( $results->[19]->{'phrase'}, 'Please herp your derp!',         "C E ::create phrase no args" );
+is( $results->[20]->{'phrase'}, 'The herp has been derped: [_1]', "C E ::create phrase  w/ args" );
+
+is( $results->[21]->{'phrase'}, 'foo Please herp your derp!',         "C E with one more NS chunk ::create phrase no args" );
+is( $results->[22]->{'phrase'}, 'foo The herp has been derped: [_1]', "C E with one more NS chunk ::create phrase  w/ args" );
+
+is( $results->[23]->{'phrase'}, 'bar Please herp your derp!',         "C E with two more NS chunks ::create phrase no args" );
+is( $results->[24]->{'phrase'}, 'bar The herp has been derped: [_1]', "C E with two more NS chunks ::create phrase  w/ args" );
+
+is( $results->[25]->{'phrase'}, 'baz Please herp your derp!',         "C E with three more NS chunks ::create phrase no args" );
+is( $results->[26]->{'phrase'}, 'baz The herp has been derped: [_1]', "C E with three more NS chunks ::create phrase  w/ args" );
+
+is( $results->[27]->{'phrase'}, 'I am method!',     "C E ->create" );
+is( $results->[28]->{'phrase'}, 'foo I am method!', "C E with one more NS chunk ->create" );
+is( $results->[29]->{'phrase'}, 'bar I am method!', "C E with two more NS chunks ->create" );
+is( $results->[30]->{'phrase'}, 'baz I am method!', "C E with three more NS chunks ->create" );
+
+$blob = <<'END_EXAMP_2';
+object.translatable("Herp a Derp");
+object.translatable("Herp a Derp with substitution: [_1]");
+Blah translatable('howdy dooty')
+eval_evil("translatable('forp forp forp')")
+END_EXAMP_2
+
+$results = get_phrases_in_text($blob);
+is( $results->[0]->{'phrase'}, "Herp a Derp",                         ".translatable() aka JavaScript" );
+is( $results->[1]->{'phrase'}, "Herp a Derp with substitution: [_1]", ".translatable() aka JavaScript with a parameter" );
+is( $results->[2]->{'phrase'}, "howdy dooty",                         "translatable() preceded by space" );
+is( $results->[3]->{'phrase'}, "forp forp forp",                      "translatable() preceded by word break (straight quote)" );

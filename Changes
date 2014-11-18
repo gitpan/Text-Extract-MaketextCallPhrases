@@ -1,9 +1,20 @@
 Revision history for Text-Extract-MaketextCallPhrases
 
+0.93  2014-11-17 19:15:31
+    - Allow for C::E subclasses
+    - Add support for optional matches
+    - bump req ver of M::W to latest
+    - Add support for getting matches in arguments besides the first
+    - Add Cpanel::Exception.* ::create(NS,OPTIONAL-PHRASE) token
+    - Add Cpanel::Exception.* ->create(OPTIONAL-PHRASE) token
+    - Add dot notation support to translatable() token (thanks tomgreen98)
+    - only compile while() loop regex once
+    - Add word boundary support to translatable()
+
 0.92  2013-10-22 12:09:33
     - add more RELEASE_TESTING tests
-    - add Cpanel::Exception->new to cpanel_mode parser
-    
+    - add Cpanel::Exception->new top cpanel_mode parser
+
 0.91  2013-03-21 07:40:45
     - account for tokens w/ trailing WS
     - add support for EOL '## no extract maketext' notation

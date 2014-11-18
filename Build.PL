@@ -11,7 +11,7 @@ my $builder = Module::Build->new(
         'Test::More'          => 0,
         'Text::Balanced'      => 0,
         'String::Unquotemeta' => 0,
-        'Module::Want'        => '0.3',
+        'Module::Want'        => '0.6',
     },
     add_to_cleanup => ['Text-Extract-MaketextCallPhrases-*'],
 );

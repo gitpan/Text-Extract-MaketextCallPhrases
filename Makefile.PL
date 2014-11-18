@@ -14,7 +14,7 @@ WriteMakefile(
 
         'Text::Balanced'      => 0,
         'String::Unquotemeta' => 0,
-        'Module::Want'        => '0.3',
+        'Module::Want'        => '0.6',
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean => { FILES    => 'Text-Extract-MaketextCallPhrases-*' },

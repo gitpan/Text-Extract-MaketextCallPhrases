@@ -3,13 +3,13 @@ package Text::Extract::MaketextCallPhrases;
 use strict;
 use warnings;
 
-$Text::Extract::MaketextCallPhrases::VERSION = '0.92';
+$Text::Extract::MaketextCallPhrases::VERSION = '0.93';
 
 use Text::Balanced      ();
 use String::Unquotemeta ();
 
 # So we don't have to maintain an identical regex
-use Module::Want 0.3 ();
+use Module::Want 0.6 ();
 my $ns_regexp = Module::Want::get_ns_regexp();
 
 sub import {
@@ -19,7 +19,7 @@ sub import {
 }
 
 my $default_regexp_conf_item = [
-    qr/(?:(?:^|\:|\s|=|\()translatable|(?:make|lex)text(?:_[a-zA-Z0-9_]+_context)?)\s*\(?/,
+    qr/(?:(?:^|\:|\s|=|\(|\.|\b)translatable|(?:make|lex)text(?:_[a-zA-Z0-9_]+_context)?)\s*\(?/,
     sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ },
 ];
 
@@ -36,7 +36,7 @@ sub get_phrases_in_text {
 
     if ( $conf_hr->{'cpanel_mode'} && $conf_hr->{'cpanel_mode'} != 0 ) {
         $conf_hr->{'cpanel_mode'} = '0E0';
-        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ], [ qr/Cpanel::Exception->new\(/, qr/\s*\)/ ];
+        push @{ $conf_hr->{'regexp_conf'} }, [ qr/\<cptext[^\\]/, qr/\s*\>/ ], [ qr/(?:^|[^<])cptext\s*\(/, qr/\s*\)/ ], [ qr/Cpanel::Exception(?:::$ns_regexp)?->new\(/, qr/\s*\)/ ], [ qr/Cpanel::Exception(?:::$ns_regexp)?::create\(/, qr/\s*\)/, { 'optional' => 1, 'arg_position' => 2 } ], [ qr/Cpanel::Exception(?:::$ns_regexp)?\-\>create\(/, qr/\s*\)/, { 'optional' => 1 } ];
     }
 
     my @results;
@@ -44,18 +44,22 @@ sub get_phrases_in_text {
 
     # I like this alignment better than what tidy does, seems clearer to me even if a bit overkill perhaps
     #tidyoff
-    for my $regexp ( 
+    for my $regexp (
         $conf_hr->{'regexp_conf'} ? (
-                                        $conf_hr->{'no_default_regex'} ? @{ $conf_hr->{'regexp_conf'} } 
+                                        $conf_hr->{'no_default_regex'} ? @{ $conf_hr->{'regexp_conf'} }
                                                                        : ( $default_regexp_conf_item, @{ $conf_hr->{'regexp_conf'} } )
-                                    ) 
+                                    )
                                   : ($default_regexp_conf_item)
     ) {
     #tidyon
         my $text_working_copy = $text;
         my $original_len      = length($text_working_copy);
 
-        while ( defined $text_working_copy && $text_working_copy =~ m/($regexp->[0]|## no extract maketext)/ ) {
+        my $rx_conf_hr = defined $regexp->[2] && ref( $regexp->[2] ) eq 'HASH' ? $regexp->[2] : { 'optional' => 0, 'arg_position' => 0 };
+        $rx_conf_hr->{arg_position} = exists $rx_conf_hr->{arg_position} ? int( abs( $rx_conf_hr->{arg_position} ) ) : 0;    # if caller passes a non-numeric value this should warn, that is a feature!
+
+        my $token_rx = qr/($regexp->[0]|## no extract maketext)/;
+        while ( defined $text_working_copy && $text_working_copy =~ m/$token_rx/ ) {
             my $matched = $1;
 
             # we have a (possibly multiline) chunk w/ notation-not-preceeded-by-token that we should ignore
@@ -93,7 +97,7 @@ sub get_phrases_in_text {
             }
 
             # ignore functions named *$1
-            if ( $text_working_copy =~ m/^\s*\{/ ) {
+            if ( $text_working_copy =~ m/^\s*\{/ && $matched !~ m/\(\s*$/ ) {
                 $result_hr->{'type'} = 'function';
                 $result_hr->{'line'} = $linenum if defined $linenum;
                 push @{ $conf_hr->{'debug_ignored_matches'} }, $result_hr;
@@ -119,7 +123,30 @@ sub get_phrases_in_text {
                 }
             }
 
+            # phrase is argument N (instead of first)
+            if ( $rx_conf_hr->{'arg_position'} > 0 ) {
+
+                # hack away the args before the one at $arg_position
+                for my $at_index ( 1 .. $rx_conf_hr->{'arg_position'} ) {
+                    $text_working_copy =~ s{^\s*\,\s*}{};
+                    if ( $at_index >= $rx_conf_hr->{'arg_position'} ) {
+                        $result_hr->{'offset'} = $original_len - length($text_working_copy);
+                        last;
+                    }
+
+                    ( $phrase, $text_working_copy ) = Text::Balanced::extract_variable($text_working_copy);
+
+                    if ( !defined $phrase ) {
+                        ( $phrase, $text_working_copy ) = Text::Balanced::extract_quotelike($text_working_copy);
+                    }
+                }
+            }
+
             ( $phrase, $text_working_copy ) = Text::Balanced::extract_variable($text_working_copy);
+            my $optional_perlish =
+                $text_working_copy =~ m/^\s*\[/ ? "ARRAY"
+              : $text_working_copy =~ m/^\s*\{/ ? "HASH"
+              :                                   0;
 
             if ( !$phrase ) {
 
@@ -206,8 +233,13 @@ sub get_phrases_in_text {
                     }
 
                     if ($is_no_arg) {
-                        $result_hr->{'is_error'} = 1;
-                        $result_hr->{'type'}     = 'no_arg';
+                        if ( $rx_conf_hr->{'optional'} ) {
+                            next;
+                        }
+                        else {
+                            $result_hr->{'is_error'} = 1;
+                            $result_hr->{'type'}     = 'no_arg';
+                        }
                     }
                     elsif ( $text_working_copy =~ m/^\s*(((?:\&|\\\*)?)$ns_regexp(?:\-\>$ns_regexp)?((?:\s*\()?))/o ) {
                         $phrase = $1;
@@ -243,12 +275,29 @@ sub get_phrases_in_text {
                 }
 
                 if ($is_no_arg) {
-                    $result_hr->{'is_error'} = 1;
-                    $result_hr->{'type'}     = 'no_arg';
+                    if ( $rx_conf_hr->{'optional'} ) {
+                        next;
+                    }
+                    else {
+                        $result_hr->{'is_error'} = 1;
+                        $result_hr->{'type'}     = 'no_arg';
+                    }
                 }
                 else {
-                    $result_hr->{'is_warning'} = 1;
-                    $result_hr->{'type'}       = 'multiline';
+                    if ($optional_perlish) {
+                        if ( $rx_conf_hr->{'optional'} ) {
+                            next;
+                        }
+                        else {
+                            $result_hr->{'is_warning'} = 1;
+                            $result_hr->{'type'}       = 'perlish';
+                            $phrase                    = $optional_perlish;
+                        }
+                    }
+                    else {
+                        $result_hr->{'is_warning'} = 1;
+                        $result_hr->{'type'}       = 'multiline';
+                    }
                 }
             }
             else {
@@ -360,7 +409,7 @@ Text::Extract::MaketextCallPhrases - Extract phrases from maketext–call–look
 
 =head1 VERSION
 
-This document describes Text::Extract::MaketextCallPhrases version 0.92
+This document describes Text::Extract::MaketextCallPhrases version 0.93
 
 =head1 SYNOPSIS
 
@@ -394,7 +443,7 @@ get_phrases_in_text() and get_phrases_in_file() are exported by default unless y
 
     use Text::Extract::MaketextCallPhrases ();
 
-=head1 INTERFACE 
+=head1 INTERFACE
 
 These functions return an array ref containing a "result hash" (described below) for each phrase found, in the order they appear in the original text.
 
@@ -408,11 +457,11 @@ The second optional argument is a hashref of options. It’s keys can be as foll
 
 =item 'regexp_conf'
 
-This should be an array reference. Each item in it should be an array reference with the following 2 items:
+This should be an array reference. Each item in it should be an array reference with at least the following 2 items:
 
 =over 4
 
-=item 1
+=item First
 
 A regex object (i.e. qr()) that matches the beginning of the thing you are looking for.
 
@@ -420,7 +469,7 @@ The regex should simply match and remain simple as it gets used by the parser wh
 
    qr/\<cptext/
 
-=item 2
+=item Second
 
 A regex object (i.e. qr()) that matches the end of the thing you are looking for.
 
@@ -428,13 +477,52 @@ It can also be a coderef that gets passed the string matched by item 1 and retur
 
 The regex should simply match and remain simple as it gets used by the parser where and as needed. Do not anchor or capture in it! If it is possible that there is space before the closing "whatever" you should include that too.
 
-   qr/\s*\>/ 
+   qr/\s*\>/
+
+=item Third (Optional)
+
+A hashref to configure this particular token’s behavior.
+
+Keys are:
+
+=over 4
+
+=item 'optional'
+
+Default is false. When set to true, tokens not followed by a string are not included in the results (e.g. no_arg).
+
+    blah("I am howdy", [ …], {…}); # 'I am howdy'
+    blah([…],{…}); # usually included in the results w/ a type of 'perlish' but under optional => 1 it will not be included in the results
+
+=item 'arg_position'
+
+Default is not to use it but conceptually it is '1' as in “first”.
+
+After the token match, the next thing (per L<Text::Balanced>) is typically the phrase. If that is not the case w/ a given token you can use arg_position to specify what position it takes in a list of arguments after the token as found by L<Text::Balanced>.
+
+For example:
+
+    mythingy('Merp', 'I am the phrase we want to parse.', 'foo')
+
+The list is 3 things: 'Merp', 'I am the phrase we want to parse.', and 'foo', positioned at 1, 2 , and 3 respectively.
+
+In that case you want to specify arg_position => 2 in order to find 'I am the phrase we want to parse.' instead of 'Merp'.
 
 =back
+
+=back
+
+Example:
 
     'regexp_conf' => [
         [ qr/greetings\+programs \|/, qr/\s*\|/ ],
         [ qr/\_\(?/, sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ } ],
+    ],
+
+    'regexp_conf' => [
+        [ qr/greetings\+programs \|/, qr/\s*\|/ ],
+        [ qr/\_\(?/, sub { return substr( $_[0], -1, 1 ) eq '(' ? qr/\s*\)/ : qr/\s*\;/ } ],
+        { 'optional' => 1 }
     ],
 
 =item 'no_default_regex'
@@ -458,7 +546,7 @@ This is an array that gets aggregate debug info on matches that did not look lik
 Some examples of things that might match but would not :
 
     sub i_heart_maketext { 1 }
-    
+
     *i_heart_maketext = "foo";
 
     goto &xyz::maketext;
@@ -523,7 +611,7 @@ You should be able to match the result's exact instance of the phrase if you fin
 
 Chunk that matched the "maketext call" regex.
 
-=item 'regexp' 
+=item 'regexp'
 
 The array reference used to match this call/phrase. It is the same thing as each array ref passed in the regexp_conf list.
 
@@ -559,7 +647,7 @@ If the phrase is a warning or error this is a keyword that highlights why the pa
 
 The value can be:
 
-=over 4 
+=over 4
 
 =item undef/non-existent
 

@@ -1,4 +1,4 @@
-use Test::More tests => 16;
+use Test::More tests => 18;
 
 use Text::Extract::MaketextCallPhrases;
 
@@ -31,6 +31,10 @@ is( $comment_start->[0]->{'phrase'}, "hi", "## no extract maketext @ beginning o
 my $comment_mid = get_phrases_in_text(qq{maketext("low")\n# you should localize your code with (## no extract maketext) maketext is great!")});
 is( scalar( @{$comment_mid} ),     1,     '## no extract maketext in middle of comment works, maketext!' );
 is( $comment_mid->[0]->{'phrase'}, "low", "## no extract maketext in middle of comment has correct phrase" );
+
+my $ml_with_notation = get_phrases_in_text(qq{maketext(\n"merp\nderp\n")## no extract maketext\nmaketext("flerp")});
+is( $ml_with_notation->[0]->{'phrase'}, "merp\nderp\n", "## no extract maketext: at end of multline call does not ignore multiline phrase" );
+is( $ml_with_notation->[1]->{'phrase'}, "flerp",        "## no extract maketext: at end of multline call does not affect a call on lines after it" );
 
 sub _str_without_notation {
     return <<'END_TEXT'
